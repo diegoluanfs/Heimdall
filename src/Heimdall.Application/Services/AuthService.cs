@@ -53,6 +53,7 @@ public class AuthService
         var refreshToken = new RefreshToken
         {
             UserId = user.Id,
+            ProjectId = project.Id,
             RefreshTokenHash = tokenHash,
             UserAgent = userAgent,
             Ip = ip,
@@ -80,7 +81,7 @@ public class AuthService
         if (user is null || !user.IsActive)
             return null;
 
-        var userProject = user.UserProjects.FirstOrDefault();
+        var userProject = await _userProjects.GetAsync(user.Id, storedToken.ProjectId, ct);
         if (userProject is null)
             return null;
 
@@ -91,6 +92,7 @@ public class AuthService
         var newRefreshToken = new RefreshToken
         {
             UserId = user.Id,
+            ProjectId = storedToken.ProjectId,
             RefreshTokenHash = newHash,
             UserAgent = userAgent,
             Ip = ip,

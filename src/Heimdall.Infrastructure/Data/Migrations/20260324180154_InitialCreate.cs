@@ -46,6 +46,7 @@ namespace Heimdall.Infrastructure.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     UserId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
                     RefreshTokenHash = table.Column<string>(type: "TEXT", nullable: false),
                     UserAgent = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
                     Ip = table.Column<string>(type: "TEXT", maxLength: 45, nullable: false),

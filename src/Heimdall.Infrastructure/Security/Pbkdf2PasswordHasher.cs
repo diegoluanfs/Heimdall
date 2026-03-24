@@ -42,7 +42,7 @@ public class Pbkdf2PasswordHasher : IPasswordHasher
             salt = Convert.FromBase64String(parts[1]);
             expectedHash = Convert.FromBase64String(parts[2]);
         }
-        catch
+        catch (FormatException)
         {
             return false;
         }

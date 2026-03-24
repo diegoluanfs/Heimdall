@@ -4,6 +4,7 @@ public class RefreshToken
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
+    public Guid ProjectId { get; set; }
     public string RefreshTokenHash { get; set; } = string.Empty;
     public string UserAgent { get; set; } = string.Empty;
     public string Ip { get; set; } = string.Empty;

@@ -45,6 +45,7 @@ public class HeimdallDbContext : DbContext
             e.HasKey(rt => rt.Id);
             e.HasIndex(rt => rt.RefreshTokenHash);
             e.HasOne(rt => rt.User).WithMany(u => u.RefreshTokens).HasForeignKey(rt => rt.UserId);
+            e.Property(rt => rt.ProjectId).IsRequired();
             e.Property(rt => rt.RefreshTokenHash).IsRequired();
             e.Property(rt => rt.UserAgent).HasMaxLength(512);
             e.Property(rt => rt.Ip).HasMaxLength(45);

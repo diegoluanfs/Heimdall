@@ -12,7 +12,7 @@ namespace Heimdall.Infrastructure.Security;
 /// <summary>
 /// JWT RS256 token service. Generates access tokens (5 min) and refresh tokens (7 days).
 /// </summary>
-public class RsaJwtTokenService : ITokenService
+public class RsaJwtTokenService : ITokenService, IDisposable
 {
     private readonly RSA _privateKey;
     private readonly string _issuer;
@@ -67,4 +67,6 @@ public class RsaJwtTokenService : ITokenService
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToBase64String(bytes);
     }
+
+    public void Dispose() => _privateKey.Dispose();
 }

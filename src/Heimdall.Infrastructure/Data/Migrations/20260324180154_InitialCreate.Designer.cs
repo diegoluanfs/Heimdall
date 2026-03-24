@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Heimdall.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(HeimdallDbContext))]
-    [Migration("20260324175949_InitialCreate")]
+    [Migration("20260324180154_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -59,6 +59,9 @@ namespace Heimdall.Infrastructure.Data.Migrations
                     b.Property<string>("Ip")
                         .IsRequired()
                         .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RefreshTokenHash")

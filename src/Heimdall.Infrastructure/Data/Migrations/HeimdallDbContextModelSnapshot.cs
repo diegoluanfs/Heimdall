@@ -58,6 +58,9 @@ namespace Heimdall.Infrastructure.Data.Migrations
                         .HasMaxLength(45)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasColumnType("TEXT");
