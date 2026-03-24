@@ -1,6 +1,31 @@
 @Heimdall.Api_HostAddress = http://localhost:5231
 
-GET {{Heimdall.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+POST {{Heimdall.Api_HostAddress}}/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "your-password",
+  "audience": "your-project-audience"
+}
+
+###
+
+POST {{Heimdall.Api_HostAddress}}/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your-refresh-token"
+}
+
+###
+
+POST {{Heimdall.Api_HostAddress}}/revoke
+Content-Type: application/json
+Authorization: Bearer your-access-token
+
+{
+  "refreshToken": "your-refresh-token"
+}
 
 ###
