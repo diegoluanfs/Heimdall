@@ -1,0 +1,26 @@
+# Build outputs
+**/bin/
+**/obj/
+*.user
+
+# Runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.sln.docstates
+.idea/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Heimdall.Api/Heimdall.Api.csproj" />
+    <Project Path="src/Heimdall.Application/Heimdall.Application.csproj" />
+    <Project Path="src/Heimdall.Domain/Heimdall.Domain.csproj" />
+    <Project Path="src/Heimdall.Infrastructure/Heimdall.Infrastructure.csproj" />
+  </Folder>
+</Solution>

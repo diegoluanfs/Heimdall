@@ -1,0 +1,6 @@
+@Heimdall.Api_HostAddress = http://localhost:5231
+
+GET {{Heimdall.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
