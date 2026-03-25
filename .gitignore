@@ -24,3 +24,44 @@
 project.lock.json
 project.fragment.lock.json
 artifacts/
+
+# Blazor/WebAssembly
+wwwroot/
+**/wwwroot/
+**/dist/
+**/build/
+**/publish/
+**/node_modules/
+**/ClientApp/build/
+**/ClientApp/node_modules/
+**/ClientApp/dist/
+
+# User secrets
+secrets.json
+**/secrets.json
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+__MACOSX/
+
+# Others
+*.swp
+*.bak
+*.tmp
+*.old
+*.orig
+*.rej

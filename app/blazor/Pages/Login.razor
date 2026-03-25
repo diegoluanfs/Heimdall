@@ -1,0 +1,123 @@
+@page "/"
+@using System.Net.Http.Json
+
+<PageTitle>Login</PageTitle>
+
+
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<Login> Logger
+
+<div class="login-container">
+    <h2>Login</h2>
+    <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div>
+            <InputText @bind-Value="loginModel.Email" placeholder="E-mail" class="input" />
+        </div>
+        <div>
+            <InputText @bind-Value="loginModel.Password" placeholder="Senha" type="password" class="input" />
+        </div>
+        <button type="submit" class="btn">Entrar</button>
+        @if (!string.IsNullOrEmpty(errorMsg))
+        {
+            <div class="error">@errorMsg</div>
+        }
+    </EditForm>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string? errorMsg;
+    private string? apiBaseUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger?.LogInformation("Login page initialized");
+        // Detecta ambiente e carrega configuração correta
+        var env = await Http.GetStringAsync("appsettings.json");
+        apiBaseUrl = System.Text.Json.JsonDocument.Parse(env).RootElement.GetProperty("ApiBaseUrl").GetString();
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMsg = null;
+        Logger?.LogInformation($"Tentando login para: {loginModel.Email}");
+        try
+        {
+            var url = (apiBaseUrl ?? "http://localhost:5231/").TrimEnd('/') + "/login";
+            var response = await Http.PostAsJsonAsync(url, loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                Logger?.LogInformation("Login realizado com sucesso");
+                errorMsg = null;
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                Logger?.LogWarning("Login falhou: credenciais inválidas");
+                errorMsg = "E-mail ou senha inválidos.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "Erro ao conectar com o servidor");
+            errorMsg = "Erro ao conectar com o servidor.";
+        }
+    }
+
+    public class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}
+
+<style>
+.login-container {
+    max-width: 350px;
+    margin: 3rem auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+.btn {
+    width: 100%;
+    background: linear-gradient(90deg, #232526, #414345);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn:hover {
+    background: linear-gradient(90deg, #414345, #232526);
+}
+.error {
+    color: #d32f2f;
+    font-size: 0.95rem;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+</style>

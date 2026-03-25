@@ -19,10 +19,15 @@ builder.Services.AddHsts(o =>
     o.MaxAge = TimeSpan.FromDays(365);
 });
 
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>())
-     .WithMethods("GET", "POST")
-     .AllowCredentials()));
+builder.Services.AddCors(o =>
+{
+    o.AddDefaultPolicy(p =>
+    {
+        p.AllowAnyOrigin()
+         .AllowAnyMethod()
+         .AllowAnyHeader();
+    });
+});
 
 // ──────────────────────────────── Rate limiting ────────────────────────────────
 builder.Services.AddRateLimiter(o =>
@@ -65,12 +70,40 @@ builder.Services.AddAuthorization();
 // ──────────────────────────────── Infrastructure ────────────────────────────────
 builder.Services.AddInfrastructure(builder.Configuration);
 
+
+// Servir arquivos estáticos da pasta web na raiz do projeto
+var webStaticPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "web");
+if (Directory.Exists(webStaticPath))
+{
+    builder.Services.AddDirectoryBrowser();
+}
+
+
+// Serviço de autenticação mockado para testes
+builder.Services.AddSingleton<IAuthService, MockAuthService>();
+
 var app = builder.Build();
 
 // ──────────────────────────────── Middleware pipeline ────────────────────────────────
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
+}
+
+
+// Servir arquivos estáticos da pasta web em /web
+if (Directory.Exists(webStaticPath))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webStaticPath),
+        RequestPath = "/web"
+    });
+    app.UseDirectoryBrowser(new DirectoryBrowserOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webStaticPath),
+        RequestPath = "/web"
+    });
 }
 
 app.UseHttpsRedirection();
@@ -101,11 +134,12 @@ using (var scope = app.Services.CreateScope())
 
 // ──────────────────────────────── Endpoints ────────────────────────────────
 
-app.MapPost("/login", async (LoginRequest request, AuthService auth, HttpContext ctx, CancellationToken ct) =>
+
+// Endpoint de login usando serviço mockado
+app.MapPost("/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
 {
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
     var result = await auth.LoginAsync(request, userAgent, ip, ct);
     return result is null
         ? Results.Unauthorized()
@@ -153,6 +187,36 @@ app.MapPost("/users", async (CreateUserRequest request, UserService users, Cance
 })
 .RequireAuthorization(p => p.RequireRole("admin"))
 .WithName("CreateUser");
+
+
+// Endpoint para servir a página de login.html na raiz
+app.MapGet("/", async context =>
+{
+    var loggerFactory = context.RequestServices.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+    var logger = loggerFactory?.CreateLogger("RootEndpointLogger");
+    // Permite definir o caminho do login.html por variável de ambiente ou appsettings
+    var envFilePath = Environment.GetEnvironmentVariable("LOGIN_HTML_PATH");
+    var configFilePath = context.RequestServices.GetService<IConfiguration>()?["LoginHtmlPath"];
+    string filePath = envFilePath ?? configFilePath;
+    if (string.IsNullOrWhiteSpace(filePath))
+    {
+        // Caminho relativo padrão (para desenvolvimento)
+        var root = AppContext.BaseDirectory;
+        var projectRoot = Path.GetFullPath(Path.Combine(root, "..", ".."));
+        filePath = Path.Combine(projectRoot, "web", "login.html");
+    }
+    logger?.LogInformation($"[LOGIN SERVE] Caminho usado: {filePath} | Existe: {File.Exists(filePath)}");
+    if (File.Exists(filePath))
+    {
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(filePath);
+    }
+    else
+    {
+        context.Response.StatusCode = 404;
+        await context.Response.WriteAsync($"Página de login não encontrada. Caminho: {filePath}");
+    }
+});
 
 app.Run();
 
