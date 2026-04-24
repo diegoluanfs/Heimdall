@@ -5,7 +5,7 @@ using Heimdall.Domain.Interfaces;
 
 namespace Heimdall.Application.Services;
 
-public class AuthService
+public class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
     private readonly IProjectRepository _projects;

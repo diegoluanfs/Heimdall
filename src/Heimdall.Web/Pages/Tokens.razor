@@ -1,0 +1,689 @@
+@page "/tokens"
+@using Microsoft.AspNetCore.Components.Authorization
+@layout DashboardLayout
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Tokens - Heimdall</PageTitle>
+
+<div class="tokens-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Refresh Tokens</h1>
+            <p class="page-subtitle">Monitor and manage active user sessions</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-danger" @onclick="ConfirmRevokeAll" disabled="@(!activeTokens.Any())">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>Revoke All</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="token-stats">
+        <div class="stat-card-small">
+            <div class="stat-icon-small stat-icon-success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="stat-content-small">
+                <span class="stat-label-small">Active</span>
+                <span class="stat-value-small">@activeTokens.Count</span>
+            </div>
+        </div>
+
+        <div class="stat-card-small">
+            <div class="stat-icon-small stat-icon-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="stat-content-small">
+                <span class="stat-label-small">Expired</span>
+                <span class="stat-value-small">@expiredTokens.Count</span>
+            </div>
+        </div>
+
+        <div class="stat-card-small">
+            <div class="stat-icon-small stat-icon-error">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+            </div>
+            <div class="stat-content-small">
+                <span class="stat-label-small">Revoked</span>
+                <span class="stat-value-small">@revokedTokens.Count</span>
+            </div>
+        </div>
+
+        <div class="stat-card-small">
+            <div class="stat-icon-small stat-icon-info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <div class="stat-content-small">
+                <span class="stat-label-small">Total</span>
+                <span class="stat-value-small">@tokens.Count</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="toolbar">
+        <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="search-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Search by user, IP or device..." @bind="searchQuery" @bind:event="oninput" @onkeyup="FilterTokens" class="search-input" />
+        </div>
+        <div class="filter-group">
+            <select @bind="filterStatus" @bind:after="FilterTokens" class="filter-select">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="revoked">Revoked</option>
+            </select>
+            <select @bind="filterProject" @bind:after="FilterTokens" class="filter-select">
+                <option value="all">All Projects</option>
+                @foreach (var project in availableProjects)
+                {
+                    <option value="@project">@project</option>
+                }
+            </select>
+            <button class="btn-secondary" @onclick="RefreshTokens">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading tokens...</p>
+        </div>
+    }
+    else if (!filteredTokens.Any())
+    {
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <h3>No tokens found</h3>
+            <p>@(string.IsNullOrWhiteSpace(searchQuery) ? "No active sessions at the moment" : "Try adjusting your search filters")</p>
+        </div>
+    }
+    else
+    {
+        <!-- Tokens Table -->
+        <div class="table-container">
+            <table class="tokens-table">
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>User</th>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var token in filteredTokens)
+                    {
+                        <tr class="@(GetTokenStatusClass(token))">
+                            <td>
+                                <div class="session-cell">
+                                    <div class="session-icon">
+                                        @if (token.UserAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        }
+                                    </div>
+                                    <div class="session-details">
+                                        <span class="session-device" title="@token.UserAgent">@GetDeviceName(token.UserAgent)</span>
+                                        <span class="session-ip">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                            </svg>
+                                            @token.Ip
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="user-cell-compact">
+                                    <div class="user-avatar-tiny">
+                                        <span>@GetInitials(token.UserEmail)</span>
+                                    </div>
+                                    <span class="user-email-compact">@token.UserEmail</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="project-badge-compact">@token.ProjectName</span>
+                            </td>
+                            <td>
+                                <span class="token-status-badge @GetTokenStatusBadgeClass(token)">
+                                    <span class="status-dot"></span>
+                                    @GetTokenStatusText(token)
+                                </span>
+                            </td>
+                            <td>
+                                @if (token.RevokedAt.HasValue)
+                                {
+                                    <div class="date-cell">
+                                        <span class="date-text revoked">Revoked</span>
+                                        <span class="time-text">@token.RevokedAt.Value.ToString("MMM dd, HH:mm")</span>
+                                    </div>
+                                }
+                                else if (token.IsExpired)
+                                {
+                                    <div class="date-cell">
+                                        <span class="date-text expired">Expired</span>
+                                        <span class="time-text">@token.ExpiresAt.ToString("MMM dd, HH:mm")</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="date-cell">
+                                        <span class="date-text">@GetTimeRemaining(token.ExpiresAt)</span>
+                                        <span class="time-text">@token.ExpiresAt.ToString("MMM dd, HH:mm")</span>
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="icon-btn" title="View Details" @onclick="() => ViewTokenDetails(token)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                    @if (token.IsActive)
+                                    {
+                                        <button class="icon-btn danger" title="Revoke" @onclick="() => ConfirmRevoke(token)">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                            </svg>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Token Details Modal -->
+@if (showDetailsModal && selectedToken != null)
+{
+    <div class="modal-overlay" @onclick="CloseDetailsModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">Token Details</h2>
+                <button class="modal-close" @onclick="CloseDetailsModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Token ID</span>
+                        <code class="detail-value">@selectedToken.Id</code>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <span class="detail-label">User</span>
+                        <span class="detail-value">@selectedToken.UserEmail</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <span class="detail-label">Project</span>
+                        <span class="detail-value">@selectedToken.ProjectName</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <span class="detail-label">IP Address</span>
+                        <code class="detail-value">@selectedToken.Ip</code>
+                    </div>
+                    
+                    <div class="detail-item full-width">
+                        <span class="detail-label">User Agent</span>
+                        <code class="detail-value small">@selectedToken.UserAgent</code>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <span class="detail-label">Created</span>
+                        <span class="detail-value">@selectedToken.CreatedAt.ToString("MMM dd, yyyy HH:mm:ss")</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <span class="detail-label">Expires</span>
+                        <span class="detail-value">@selectedToken.ExpiresAt.ToString("MMM dd, yyyy HH:mm:ss")</span>
+                    </div>
+                    
+                    @if (selectedToken.RevokedAt.HasValue)
+                    {
+                        <div class="detail-item">
+                            <span class="detail-label">Revoked</span>
+                            <span class="detail-value revoked">@selectedToken.RevokedAt.Value.ToString("MMM dd, yyyy HH:mm:ss")</span>
+                        </div>
+                    }
+                    
+                    <div class="detail-item full-width">
+                        <span class="detail-label">Status</span>
+                        <span class="token-status-badge @GetTokenStatusBadgeClass(selectedToken)">
+                            <span class="status-dot"></span>
+                            @GetTokenStatusText(selectedToken)
+                        </span>
+                    </div>
+                </div>
+                
+                @if (selectedToken.IsActive)
+                {
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" @onclick="CloseDetailsModal">Close</button>
+                        <button type="button" class="btn-danger" @onclick="() => { CloseDetailsModal(); ConfirmRevoke(selectedToken); }">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                            <span>Revoke Token</span>
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="modal-actions">
+                        <button type="button" class="btn-primary" @onclick="CloseDetailsModal">Close</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Revoke Confirmation Modal -->
+@if (showRevokeModal)
+{
+    <div class="modal-overlay" @onclick="CancelRevoke">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">Revoke Token</h2>
+                <button class="modal-close" @onclick="CancelRevoke">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <strong>Are you sure?</strong>
+                        <p>This will immediately revoke the session for <strong>@tokenToRevoke?.UserEmail</strong> and force them to login again.</p>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CancelRevoke">Cancel</button>
+                    <button type="button" class="btn-danger" @onclick="RevokeToken" disabled="@isRevoking">
+                        @if (isRevoking)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Revoking...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                            <span>Revoke Session</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Revoke All Confirmation Modal -->
+@if (showRevokeAllModal)
+{
+    <div class="modal-overlay" @onclick="CancelRevokeAll">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">Revoke All Active Tokens</h2>
+                <button class="modal-close" @onclick="CancelRevokeAll">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="alert alert-error">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <strong>Critical Action!</strong>
+                        <p>This will revoke <strong>all @activeTokens.Count active sessions</strong> and force all users to login again. This action cannot be undone.</p>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CancelRevokeAll">Cancel</button>
+                    <button type="button" class="btn-danger" @onclick="RevokeAllTokens" disabled="@isRevokingAll">
+                        @if (isRevokingAll)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Revoking All...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>Revoke All Sessions</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private class TokenModel
+    {
+        public Guid Id { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public string UserAgent { get; set; } = string.Empty;
+        public string Ip { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public DateTime? RevokedAt { get; set; }
+        public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
+        public bool IsRevoked => RevokedAt.HasValue;
+        public bool IsActive => !IsRevoked && !IsExpired;
+    }
+
+    private List<TokenModel> tokens = new();
+    private List<TokenModel> filteredTokens = new();
+    private List<TokenModel> activeTokens => tokens.Where(t => t.IsActive).ToList();
+    private List<TokenModel> expiredTokens => tokens.Where(t => t.IsExpired && !t.IsRevoked).ToList();
+    private List<TokenModel> revokedTokens => tokens.Where(t => t.IsRevoked).ToList();
+    private List<string> availableProjects = new();
+    
+    private TokenModel? selectedToken;
+    private TokenModel? tokenToRevoke;
+    
+    private string searchQuery = string.Empty;
+    private string filterStatus = "all";
+    private string filterProject = "all";
+    
+    private bool isLoading = false;
+    private bool showDetailsModal = false;
+    private bool showRevokeModal = false;
+    private bool showRevokeAllModal = false;
+    private bool isRevoking = false;
+    private bool isRevokingAll = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTokens();
+    }
+
+    private async Task LoadTokens()
+    {
+        isLoading = true;
+        
+        // TODO: Fetch from API
+        await Task.Delay(500);
+        
+        // Mock data
+        tokens = new List<TokenModel>
+        {
+            new TokenModel
+            {
+                Id = Guid.NewGuid(),
+                UserEmail = "admin@heimdall.com",
+                ProjectName = "Heimdall API",
+                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+                Ip = "192.168.1.100",
+                CreatedAt = DateTime.UtcNow.AddHours(-2),
+                ExpiresAt = DateTime.UtcNow.AddDays(5)
+            },
+            new TokenModel
+            {
+                Id = Guid.NewGuid(),
+                UserEmail = "john.doe@company.com",
+                ProjectName = "Customer Portal",
+                UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1",
+                Ip = "10.0.0.45",
+                CreatedAt = DateTime.UtcNow.AddDays(-3),
+                ExpiresAt = DateTime.UtcNow.AddDays(4)
+            },
+            new TokenModel
+            {
+                Id = Guid.NewGuid(),
+                UserEmail = "admin@heimdall.com",
+                ProjectName = "Admin Dashboard",
+                UserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+                Ip = "192.168.1.100",
+                CreatedAt = DateTime.UtcNow.AddDays(-8),
+                ExpiresAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new TokenModel
+            {
+                Id = Guid.NewGuid(),
+                UserEmail = "jane.smith@company.com",
+                ProjectName = "Customer Portal",
+                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/120.0.0.0",
+                Ip = "172.16.0.23",
+                CreatedAt = DateTime.UtcNow.AddDays(-10),
+                ExpiresAt = DateTime.UtcNow.AddDays(5),
+                RevokedAt = DateTime.UtcNow.AddDays(-2)
+            }
+        };
+        
+        availableProjects = tokens.Select(t => t.ProjectName).Distinct().OrderBy(p => p).ToList();
+        filteredTokens = tokens;
+        isLoading = false;
+    }
+
+    private void FilterTokens()
+    {
+        filteredTokens = tokens.Where(t =>
+        {
+            var matchesSearch = string.IsNullOrWhiteSpace(searchQuery) ||
+                              t.UserEmail.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                              t.Ip.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                              t.UserAgent.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+            
+            var matchesStatus = filterStatus == "all" ||
+                              (filterStatus == "active" && t.IsActive) ||
+                              (filterStatus == "expired" && t.IsExpired && !t.IsRevoked) ||
+                              (filterStatus == "revoked" && t.IsRevoked);
+            
+            var matchesProject = filterProject == "all" || t.ProjectName == filterProject;
+            
+            return matchesSearch && matchesStatus && matchesProject;
+        }).ToList();
+    }
+
+    private async Task RefreshTokens()
+    {
+        await LoadTokens();
+        FilterTokens();
+    }
+
+    private void ViewTokenDetails(TokenModel token)
+    {
+        selectedToken = token;
+        showDetailsModal = true;
+    }
+
+    private void CloseDetailsModal()
+    {
+        showDetailsModal = false;
+        selectedToken = null;
+    }
+
+    private void ConfirmRevoke(TokenModel token)
+    {
+        tokenToRevoke = token;
+        showRevokeModal = true;
+    }
+
+    private void CancelRevoke()
+    {
+        showRevokeModal = false;
+        tokenToRevoke = null;
+    }
+
+    private async Task RevokeToken()
+    {
+        if (tokenToRevoke == null) return;
+        
+        isRevoking = true;
+        
+        try
+        {
+            // TODO: Revoke via API
+            await Task.Delay(1000);
+            
+            tokenToRevoke.RevokedAt = DateTime.UtcNow;
+            FilterTokens();
+            StateHasChanged();
+            
+            CancelRevoke();
+        }
+        finally
+        {
+            isRevoking = false;
+        }
+    }
+
+    private void ConfirmRevokeAll()
+    {
+        showRevokeAllModal = true;
+    }
+
+    private void CancelRevokeAll()
+    {
+        showRevokeAllModal = false;
+    }
+
+    private async Task RevokeAllTokens()
+    {
+        isRevokingAll = true;
+        
+        try
+        {
+            // TODO: Revoke all via API
+            await Task.Delay(1500);
+            
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+            }
+            
+            FilterTokens();
+            StateHasChanged();
+            
+            CancelRevokeAll();
+        }
+        finally
+        {
+            isRevokingAll = false;
+        }
+    }
+
+    private string GetInitials(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return "??";
+        var parts = email.Split('@');
+        if (parts.Length == 0) return "??";
+        var name = parts[0];
+        if (name.Length == 1) return name.ToUpper();
+        return name.Substring(0, 2).ToUpper();
+    }
+
+    private string GetDeviceName(string userAgent)
+    {
+        if (userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase))
+            return "iPhone";
+        if (userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase))
+            return "iPad";
+        if (userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase))
+            return "Android Device";
+        if (userAgent.Contains("Windows", StringComparison.OrdinalIgnoreCase))
+            return "Windows PC";
+        if (userAgent.Contains("Macintosh", StringComparison.OrdinalIgnoreCase))
+            return "Mac";
+        if (userAgent.Contains("Linux", StringComparison.OrdinalIgnoreCase))
+            return "Linux";
+        
+        return "Unknown Device";
+    }
+
+    private string GetTokenStatusClass(TokenModel token)
+    {
+        if (token.IsRevoked) return "token-revoked";
+        if (token.IsExpired) return "token-expired";
+        return "token-active";
+    }
+
+    private string GetTokenStatusBadgeClass(TokenModel token)
+    {
+        if (token.IsRevoked) return "status-revoked";
+        if (token.IsExpired) return "status-expired";
+        return "status-active";
+    }
+
+    private string GetTokenStatusText(TokenModel token)
+    {
+        if (token.IsRevoked) return "Revoked";
+        if (token.IsExpired) return "Expired";
+        return "Active";
+    }
+
+    private string GetTimeRemaining(DateTime expiresAt)
+    {
+        var timeSpan = expiresAt - DateTime.UtcNow;
+        
+        if (timeSpan.TotalDays >= 1)
+            return $"{(int)timeSpan.TotalDays}d remaining";
+        if (timeSpan.TotalHours >= 1)
+            return $"{(int)timeSpan.TotalHours}h remaining";
+        if (timeSpan.TotalMinutes >= 1)
+            return $"{(int)timeSpan.TotalMinutes}m remaining";
+        
+        return "< 1m remaining";
+    }
+}

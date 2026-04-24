@@ -1,0 +1,712 @@
+@page "/users"
+@using Microsoft.AspNetCore.Components.Authorization
+@layout DashboardLayout
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Users - Heimdall</PageTitle>
+
+<div class="users-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Users</h1>
+            <p class="page-subtitle">Manage user accounts and permissions</p>
+        </div>
+        <button class="btn-primary" @onclick="OpenCreateModal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            <span>New User</span>
+        </button>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="toolbar">
+        <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="search-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Search users..." @bind="searchQuery" @bind:event="oninput" @onkeyup="FilterUsers" class="search-input" />
+        </div>
+        <div class="filter-group">
+            <select @bind="filterStatus" @bind:after="FilterUsers" class="filter-select">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            <select @bind="filterRole" @bind:after="FilterUsers" class="filter-select">
+                <option value="all">All Roles</option>
+                <option value="Admin">Admin</option>
+                <option value="User">User</option>
+                <option value="Viewer">Viewer</option>
+            </select>
+            <button class="btn-secondary" @onclick="RefreshUsers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading users...</p>
+        </div>
+    }
+    else if (!filteredUsers.Any())
+    {
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <h3>No users found</h3>
+            <p>@(string.IsNullOrWhiteSpace(searchQuery) ? "Get started by creating your first user" : "Try adjusting your search filters")</p>
+            @if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <button class="btn-primary" @onclick="OpenCreateModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    <span>Create First User</span>
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Users Table -->
+        <div class="table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Projects</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in filteredUsers)
+                    {
+                        <tr class="@(user.IsActive ? "" : "inactive-row")">
+                            <td>
+                                <div class="user-cell">
+                                    <div class="user-avatar-small">
+                                        <span>@GetInitials(user.Email)</span>
+                                    </div>
+                                    <div class="user-details">
+                                        <span class="user-email">@user.Email</span>
+                                        <span class="user-id">ID: @user.Id.ToString().Substring(0, 8)</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="projects-cell">
+                                    @if (user.Projects.Any())
+                                    {
+                                        <div class="project-badges">
+                                            @foreach (var project in user.Projects.Take(2))
+                                            {
+                                                <span class="project-badge" title="@project.ProjectName - @project.Role">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                    <span>@project.ProjectName</span>
+                                                    <span class="role-tag">@project.Role</span>
+                                                </span>
+                                            }
+                                            @if (user.Projects.Count > 2)
+                                            {
+                                                <span class="more-badge">+@(user.Projects.Count - 2)</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="no-projects">No projects</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge @(user.IsActive ? "status-active" : "status-inactive")">
+                                    <span class="status-dot"></span>
+                                    @(user.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <span class="date-text">@user.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                <span class="time-text">@user.CreatedAt.ToString("HH:mm")</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="icon-btn" title="Edit" @onclick="() => OpenEditModal(user)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button class="icon-btn" title="Manage Projects" @onclick="() => OpenProjectsModal(user)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                    </button>
+                                    <button class="icon-btn danger" title="Delete" @onclick="() => ConfirmDelete(user)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Create/Edit User Modal -->
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">@(isEditMode ? "Edit User" : "Create New User")</h2>
+                <button class="modal-close" @onclick="CloseModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form class="modal-body" @onsubmit="SaveUser">
+                <div class="form-group">
+                    <label for="userEmail" class="form-label">Email Address</label>
+                    <input type="email" id="userEmail" @bind="currentUser.Email" class="form-input" placeholder="user@example.com" required disabled="@isEditMode" />
+                    @if (isEditMode)
+                    {
+                        <span class="form-hint">Email cannot be changed after creation</span>
+                    }
+                </div>
+                
+                @if (!isEditMode)
+                {
+                    <div class="form-group">
+                        <label for="userPassword" class="form-label">Password</label>
+                        <input type="password" id="userPassword" @bind="currentUser.Password" class="form-input" placeholder="••••••••" required />
+                        <span class="form-hint">Minimum 8 characters, include uppercase, lowercase, and numbers</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userPasswordConfirm" class="form-label">Confirm Password</label>
+                        <input type="password" id="userPasswordConfirm" @bind="passwordConfirm" class="form-input" placeholder="••••••••" required />
+                    </div>
+                }
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" @bind="currentUser.IsActive" class="form-checkbox" />
+                        <span>Active User</span>
+                    </label>
+                    <span class="form-hint">Only active users can login</span>
+                </div>
+                
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-error">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>@errorMessage</span>
+                    </div>
+                }
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="submit" class="btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>@(isEditMode ? "Update" : "Create") User</span>
+                        }
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- Manage Projects Modal -->
+@if (showProjectsModal)
+{
+    <div class="modal-overlay" @onclick="CloseProjectsModal">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title">Manage Projects</h2>
+                    <p class="modal-subtitle">@selectedUser?.Email</p>
+                </div>
+                <button class="modal-close" @onclick="CloseProjectsModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="projects-manager">
+                    <div class="add-project-section">
+                        <h3 class="section-title-small">Add to Project</h3>
+                        <div class="add-project-form">
+                            <select @bind="newProjectId" class="form-input">
+                                <option value="">Select a project...</option>
+                                @foreach (var project in availableProjects)
+                                {
+                                    <option value="@project.Id">@project.Name</option>
+                                }
+                            </select>
+                            <select @bind="newProjectRole" class="form-input">
+                                <option value="User">User</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Viewer">Viewer</option>
+                            </select>
+                            <button type="button" class="btn-primary" @onclick="AddUserToProject" disabled="@(string.IsNullOrEmpty(newProjectId))">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span>Add</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="user-projects-list">
+                        <h3 class="section-title-small">Current Projects (@selectedUser?.Projects.Count)</h3>
+                        @if (selectedUser?.Projects.Any() == true)
+                        {
+                            <div class="project-items">
+                                @foreach (var project in selectedUser.Projects)
+                                {
+                                    <div class="project-item">
+                                        <div class="project-item-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
+                                        </div>
+                                        <div class="project-item-content">
+                                            <span class="project-item-name">@project.ProjectName</span>
+                                            <span class="project-item-role">@project.Role</span>
+                                        </div>
+                                        <button class="icon-btn danger" @onclick="() => RemoveUserFromProject(project.ProjectId)">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="empty-state-small">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                                <p>User not assigned to any projects</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal)
+{
+    <div class="modal-overlay" @onclick="CancelDelete">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">Delete User</h2>
+                <button class="modal-close" @onclick="CancelDelete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <strong>Are you sure?</strong>
+                        <p>This will permanently delete <strong>@userToDelete?.Email</strong> and revoke all active sessions. This action cannot be undone.</p>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button type="button" class="btn-danger" @onclick="DeleteUser" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Delete User</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private class UserModel
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public List<UserProjectModel> Projects { get; set; } = new();
+    }
+
+    private class UserProjectModel
+    {
+        public Guid ProjectId { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    private class ProjectOption
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private List<UserModel> users = new();
+    private List<UserModel> filteredUsers = new();
+    private List<ProjectOption> availableProjects = new();
+    private UserModel currentUser = new();
+    private UserModel? selectedUser;
+    private UserModel? userToDelete;
+    
+    private string searchQuery = string.Empty;
+    private string filterStatus = "all";
+    private string filterRole = "all";
+    private string errorMessage = string.Empty;
+    private string passwordConfirm = string.Empty;
+    private string newProjectId = string.Empty;
+    private string newProjectRole = "User";
+    
+    private bool isLoading = false;
+    private bool showModal = false;
+    private bool showProjectsModal = false;
+    private bool showDeleteModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+        await LoadAvailableProjects();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        
+        // TODO: Fetch from API
+        await Task.Delay(500);
+        
+        // Mock data
+        users = new List<UserModel>
+        {
+            new UserModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Email = "admin@heimdall.com", 
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                Projects = new List<UserProjectModel>
+                {
+                    new UserProjectModel { ProjectId = Guid.NewGuid(), ProjectName = "Heimdall API", Role = "Admin" },
+                    new UserProjectModel { ProjectId = Guid.NewGuid(), ProjectName = "Customer Portal", Role = "Admin" }
+                }
+            },
+            new UserModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Email = "john.doe@company.com", 
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-15),
+                Projects = new List<UserProjectModel>
+                {
+                    new UserProjectModel { ProjectId = Guid.NewGuid(), ProjectName = "Customer Portal", Role = "User" }
+                }
+            },
+            new UserModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Email = "jane.smith@company.com", 
+                IsActive = false,
+                CreatedAt = DateTime.UtcNow.AddDays(-5),
+                Projects = new List<UserProjectModel>()
+            }
+        };
+        
+        filteredUsers = users;
+        isLoading = false;
+    }
+
+    private async Task LoadAvailableProjects()
+    {
+        // TODO: Fetch from API
+        await Task.Delay(100);
+        
+        availableProjects = new List<ProjectOption>
+        {
+            new ProjectOption { Id = Guid.NewGuid(), Name = "Heimdall API" },
+            new ProjectOption { Id = Guid.NewGuid(), Name = "Customer Portal" },
+            new ProjectOption { Id = Guid.NewGuid(), Name = "Admin Dashboard" }
+        };
+    }
+
+    private void FilterUsers()
+    {
+        filteredUsers = users.Where(u =>
+        {
+            var matchesSearch = string.IsNullOrWhiteSpace(searchQuery) ||
+                              u.Email.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+            
+            var matchesStatus = filterStatus == "all" ||
+                              (filterStatus == "active" && u.IsActive) ||
+                              (filterStatus == "inactive" && !u.IsActive);
+            
+            var matchesRole = filterRole == "all" ||
+                            u.Projects.Any(p => p.Role == filterRole);
+            
+            return matchesSearch && matchesStatus && matchesRole;
+        }).ToList();
+    }
+
+    private async Task RefreshUsers()
+    {
+        await LoadUsers();
+        FilterUsers();
+    }
+
+    private void OpenCreateModal()
+    {
+        currentUser = new UserModel { IsActive = true, CreatedAt = DateTime.UtcNow };
+        passwordConfirm = string.Empty;
+        isEditMode = false;
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void OpenEditModal(UserModel user)
+    {
+        currentUser = new UserModel
+        {
+            Id = user.Id,
+            Email = user.Email,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            Projects = user.Projects.ToList()
+        };
+        isEditMode = true;
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentUser = new UserModel();
+        passwordConfirm = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private async Task SaveUser()
+    {
+        errorMessage = string.Empty;
+        isSaving = true;
+        
+        try
+        {
+            if (string.IsNullOrWhiteSpace(currentUser.Email))
+            {
+                errorMessage = "Email is required";
+                return;
+            }
+            
+            if (!isEditMode)
+            {
+                if (string.IsNullOrWhiteSpace(currentUser.Password))
+                {
+                    errorMessage = "Password is required";
+                    return;
+                }
+                
+                if (currentUser.Password != passwordConfirm)
+                {
+                    errorMessage = "Passwords do not match";
+                    return;
+                }
+                
+                if (currentUser.Password.Length < 8)
+                {
+                    errorMessage = "Password must be at least 8 characters";
+                    return;
+                }
+            }
+            
+            // TODO: Save to API
+            await Task.Delay(1000);
+            
+            if (isEditMode)
+            {
+                var index = users.FindIndex(u => u.Id == currentUser.Id);
+                if (index >= 0)
+                {
+                    users[index].IsActive = currentUser.IsActive;
+                }
+            }
+            else
+            {
+                currentUser.Id = Guid.NewGuid();
+                users.Add(new UserModel
+                {
+                    Id = currentUser.Id,
+                    Email = currentUser.Email,
+                    IsActive = currentUser.IsActive,
+                    CreatedAt = DateTime.UtcNow,
+                    Projects = new List<UserProjectModel>()
+                });
+            }
+            
+            FilterUsers();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenProjectsModal(UserModel user)
+    {
+        selectedUser = user;
+        newProjectId = string.Empty;
+        newProjectRole = "User";
+        showProjectsModal = true;
+    }
+
+    private void CloseProjectsModal()
+    {
+        showProjectsModal = false;
+        selectedUser = null;
+    }
+
+    private void AddUserToProject()
+    {
+        if (selectedUser == null || string.IsNullOrEmpty(newProjectId)) return;
+        
+        var projectId = Guid.Parse(newProjectId);
+        var project = availableProjects.FirstOrDefault(p => p.Id == projectId);
+        
+        if (project != null && !selectedUser.Projects.Any(p => p.ProjectId == projectId))
+        {
+            selectedUser.Projects.Add(new UserProjectModel
+            {
+                ProjectId = projectId,
+                ProjectName = project.Name,
+                Role = newProjectRole
+            });
+            
+            newProjectId = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveUserFromProject(Guid projectId)
+    {
+        if (selectedUser == null) return;
+        
+        selectedUser.Projects.RemoveAll(p => p.ProjectId == projectId);
+        StateHasChanged();
+    }
+
+    private void ConfirmDelete(UserModel user)
+    {
+        userToDelete = user;
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+        userToDelete = null;
+    }
+
+    private async Task DeleteUser()
+    {
+        if (userToDelete == null) return;
+        
+        isDeleting = true;
+        
+        try
+        {
+            // TODO: Delete via API
+            await Task.Delay(1000);
+            
+            users.RemoveAll(u => u.Id == userToDelete.Id);
+            FilterUsers();
+            
+            CancelDelete();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private string GetInitials(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return "??";
+        
+        var parts = email.Split('@');
+        if (parts.Length == 0) return "??";
+        
+        var name = parts[0];
+        if (name.Length == 1) return name.ToUpper();
+        
+        return name.Substring(0, 2).ToUpper();
+    }
+}

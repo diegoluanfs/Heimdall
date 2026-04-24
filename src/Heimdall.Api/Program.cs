@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Heimdall.Application.DTOs;
+using Heimdall.Application.Interfaces;
 using Heimdall.Application.Services;
 using Heimdall.Infrastructure.Data;
 using Heimdall.Infrastructure.Extensions;
@@ -19,6 +20,7 @@ builder.Services.AddHsts(o =>
     o.MaxAge = TimeSpan.FromDays(365);
 });
 
+//Temos que ajustar em produção para permitir apenas os domínios autorizados, mas para desenvolvimento local é mais fácil permitir tudo
 builder.Services.AddCors(o =>
 {
     o.AddDefaultPolicy(p =>
@@ -70,18 +72,6 @@ builder.Services.AddAuthorization();
 // ──────────────────────────────── Infrastructure ────────────────────────────────
 builder.Services.AddInfrastructure(builder.Configuration);
 
-
-// Servir arquivos estáticos da pasta web na raiz do projeto
-var webStaticPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "web");
-if (Directory.Exists(webStaticPath))
-{
-    builder.Services.AddDirectoryBrowser();
-}
-
-
-// Serviço de autenticação mockado para testes
-builder.Services.AddSingleton<IAuthService, MockAuthService>();
-
 var app = builder.Build();
 
 // ──────────────────────────────── Middleware pipeline ────────────────────────────────
@@ -90,23 +80,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-
-// Servir arquivos estáticos da pasta web em /web
-if (Directory.Exists(webStaticPath))
-{
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webStaticPath),
-        RequestPath = "/web"
-    });
-    app.UseDirectoryBrowser(new DirectoryBrowserOptions
-    {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webStaticPath),
-        RequestPath = "/web"
-    });
-}
-
 app.UseHttpsRedirection();
+
+// Servir arquivos estáticos do Blazor WebAssembly
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
 
 // Security headers
 app.Use(async (ctx, next) =>
@@ -115,7 +93,22 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.Append("X-Frame-Options", "DENY");
     ctx.Response.Headers.Append("X-XSS-Protection", "0");
     ctx.Response.Headers.Append("Referrer-Policy", "no-referrer");
-    ctx.Response.Headers.Append("Content-Security-Policy", "default-src 'none'");
+
+    // CSP ajustado para permitir Blazor WebAssembly
+    if (!ctx.Request.Path.StartsWithSegments("/api"))
+    {
+        ctx.Response.Headers.Append("Content-Security-Policy", 
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            "connect-src 'self';");
+    }
+    else
+    {
+        ctx.Response.Headers.Append("Content-Security-Policy", "default-src 'none'");
+    }
+
     ctx.Response.Headers.Append("Permissions-Policy", "geolocation=(), camera=(), microphone=()");
     await next();
 });
@@ -130,13 +123,58 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimdallDbContext>();
     db.Database.Migrate();
+
+    // Criar usuário admin padrão se não existir
+    var userService = scope.ServiceProvider.GetRequiredService<UserService>();
+    var projectService = scope.ServiceProvider.GetRequiredService<ProjectService>();
+
+    var adminEmail = "admin@heimdall.com";
+    var adminPassword = "Admin@123"; // Trocar em produção via variável de ambiente
+
+    // Criar usuário admin
+    var adminUserId = await userService.CreateUserAsync(
+        new CreateUserRequest(adminEmail, adminPassword), 
+        CancellationToken.None);
+
+    if (adminUserId.HasValue)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Usuário admin padrão criado: {Email}", adminEmail);
+
+        // Criar projeto padrão "Heimdall" se necessário
+        var projectId = await projectService.CreateProjectAsync(
+            new CreateProjectRequest("Heimdall", "heimdall-api"),
+            CancellationToken.None);
+
+        if (projectId.HasValue)
+        {
+            // Associar admin ao projeto
+            var userRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IUserRepository>();
+            var projectRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IProjectRepository>();
+
+            var user = await userRepo.GetByIdAsync(adminUserId.Value, CancellationToken.None);
+            var project = await projectRepo.GetByIdAsync(projectId.Value, CancellationToken.None);
+
+            if (user is not null && project is not null)
+            {
+                user.UserProjects.Add(new Heimdall.Domain.Entities.UserProject
+                {
+                    UserId = user.Id,
+                    ProjectId = project.Id,
+                    Role = "admin"
+                });
+                await userRepo.SaveChangesAsync(CancellationToken.None);
+                logger.LogInformation("Usuário admin associado ao projeto Heimdall com role 'admin'");
+            }
+        }
+    }
 }
 
 // ──────────────────────────────── Endpoints ────────────────────────────────
 
 
-// Endpoint de login usando serviço mockado
-app.MapPost("/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
+// Endpoint de login usando serviço real
+app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
 {
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -148,7 +186,7 @@ app.MapPost("/login", async (LoginRequest request, IAuthService auth, HttpContex
 .RequireRateLimiting("login")
 .WithName("Login");
 
-app.MapPost("/refresh", async (RefreshRequest request, AuthService auth, HttpContext ctx, CancellationToken ct) =>
+app.MapPost("/api/refresh", async (RefreshRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
 {
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -160,7 +198,7 @@ app.MapPost("/refresh", async (RefreshRequest request, AuthService auth, HttpCon
 })
 .WithName("Refresh");
 
-app.MapPost("/revoke", async (RevokeRequest request, AuthService auth, CancellationToken ct) =>
+app.MapPost("/api/revoke", async (RevokeRequest request, IAuthService auth, CancellationToken ct) =>
 {
     var revoked = await auth.RevokeAsync(request, ct);
     return revoked ? Results.Ok() : Results.NotFound();
@@ -168,55 +206,29 @@ app.MapPost("/revoke", async (RevokeRequest request, AuthService auth, Cancellat
 .RequireAuthorization()
 .WithName("Revoke");
 
-app.MapPost("/projects", async (CreateProjectRequest request, ProjectService projects, CancellationToken ct) =>
+app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectService projects, CancellationToken ct) =>
 {
     var id = await projects.CreateProjectAsync(request, ct);
     return id is null
         ? Results.Conflict("A project with this audience already exists.")
-        : Results.Created($"/projects/{id}", new { id });
+        : Results.Created($"/api/projects/{id}", new { id });
 })
 .RequireAuthorization(p => p.RequireRole("admin"))
 .WithName("CreateProject");
 
-app.MapPost("/users", async (CreateUserRequest request, UserService users, CancellationToken ct) =>
+app.MapPost("/api/users", async (CreateUserRequest request, UserService users, CancellationToken ct) =>
 {
     var id = await users.CreateUserAsync(request, ct);
     return id is null
         ? Results.Conflict("A user with this email already exists.")
-        : Results.Created($"/users/{id}", new { id });
+        : Results.Created($"/api/users/{id}", new { id });
 })
 .RequireAuthorization(p => p.RequireRole("admin"))
 .WithName("CreateUser");
 
-
-// Endpoint para servir a página de login.html na raiz
-app.MapGet("/", async context =>
-{
-    var loggerFactory = context.RequestServices.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
-    var logger = loggerFactory?.CreateLogger("RootEndpointLogger");
-    // Permite definir o caminho do login.html por variável de ambiente ou appsettings
-    var envFilePath = Environment.GetEnvironmentVariable("LOGIN_HTML_PATH");
-    var configFilePath = context.RequestServices.GetService<IConfiguration>()?["LoginHtmlPath"];
-    string filePath = envFilePath ?? configFilePath;
-    if (string.IsNullOrWhiteSpace(filePath))
-    {
-        // Caminho relativo padrão (para desenvolvimento)
-        var root = AppContext.BaseDirectory;
-        var projectRoot = Path.GetFullPath(Path.Combine(root, "..", ".."));
-        filePath = Path.Combine(projectRoot, "web", "login.html");
-    }
-    logger?.LogInformation($"[LOGIN SERVE] Caminho usado: {filePath} | Existe: {File.Exists(filePath)}");
-    if (File.Exists(filePath))
-    {
-        context.Response.ContentType = "text/html; charset=utf-8";
-        await context.Response.SendFileAsync(filePath);
-    }
-    else
-    {
-        context.Response.StatusCode = 404;
-        await context.Response.WriteAsync($"Página de login não encontrada. Caminho: {filePath}");
-    }
-});
+// ──────────────────────────────── Fallback para Blazor ────────────────────────────────
+// Mapeia todas as rotas não encontradas para o index.html do Blazor
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

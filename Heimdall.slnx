@@ -4,5 +4,6 @@
     <Project Path="src/Heimdall.Application/Heimdall.Application.csproj" />
     <Project Path="src/Heimdall.Domain/Heimdall.Domain.csproj" />
     <Project Path="src/Heimdall.Infrastructure/Heimdall.Infrastructure.csproj" />
+    <Project Path="src/Heimdall.Web/Heimdall.Web.csproj" />
   </Folder>
 </Solution>

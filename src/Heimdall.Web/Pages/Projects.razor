@@ -1,0 +1,451 @@
+@page "/projects"
+@using Microsoft.AspNetCore.Components.Authorization
+@layout DashboardLayout
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Projects - Heimdall</PageTitle>
+
+<div class="projects-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Projects</h1>
+            <p class="page-subtitle">Manage your authentication projects and audiences</p>
+        </div>
+        <button class="btn-primary" @onclick="OpenCreateModal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>New Project</span>
+        </button>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="toolbar">
+        <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="search-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Search projects..." @bind="searchQuery" @bind:event="oninput" @onkeyup="FilterProjects" class="search-input" />
+        </div>
+        <div class="filter-group">
+            <select @bind="filterStatus" @bind:after="FilterProjects" class="filter-select">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            <button class="btn-secondary" @onclick="RefreshProjects">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading projects...</p>
+        </div>
+    }
+    else if (!filteredProjects.Any())
+    {
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <h3>No projects found</h3>
+            <p>@(string.IsNullOrWhiteSpace(searchQuery) ? "Get started by creating your first project" : "Try adjusting your search filters")</p>
+            @if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <button class="btn-primary" @onclick="OpenCreateModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Create First Project</span>
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Projects Grid -->
+        <div class="projects-grid">
+            @foreach (var project in filteredProjects)
+            {
+                <div class="project-card @(project.IsActive ? "active" : "inactive")">
+                    <div class="project-header">
+                        <div class="project-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                        </div>
+                        <div class="project-actions">
+                            <button class="icon-btn" title="Edit" @onclick="() => OpenEditModal(project)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button class="icon-btn danger" title="Delete" @onclick="() => ConfirmDelete(project)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="project-content">
+                        <h3 class="project-name">@project.Name</h3>
+                        <div class="project-meta">
+                            <span class="meta-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span>Audience:</span>
+                            </span>
+                            <code class="audience-badge">@project.Audience</code>
+                        </div>
+                        <div class="project-footer">
+                            <span class="status-badge @(project.IsActive ? "status-active" : "status-inactive")">
+                                @(project.IsActive ? "Active" : "Inactive")
+                            </span>
+                            <span class="project-id">ID: @project.Id.ToString().Substring(0, 8)</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Create/Edit Modal -->
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">@(isEditMode ? "Edit Project" : "Create New Project")</h2>
+                <button class="modal-close" @onclick="CloseModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form class="modal-body" @onsubmit="SaveProject">
+                <div class="form-group">
+                    <label for="projectName" class="form-label">Project Name</label>
+                    <input type="text" id="projectName" @bind="currentProject.Name" class="form-input" placeholder="e.g., My Application" required />
+                </div>
+                
+                <div class="form-group">
+                    <label for="projectAudience" class="form-label">Audience</label>
+                    <input type="text" id="projectAudience" @bind="currentProject.Audience" class="form-input" placeholder="e.g., my-app-api" required />
+                    <span class="form-hint">Used for JWT token validation (lowercase, no spaces)</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" @bind="currentProject.IsActive" class="form-checkbox" />
+                        <span>Active Project</span>
+                    </label>
+                    <span class="form-hint">Only active projects can issue tokens</span>
+                </div>
+                
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-error">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>@errorMessage</span>
+                    </div>
+                }
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="submit" class="btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>@(isEditMode ? "Update" : "Create") Project</span>
+                        }
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal)
+{
+    <div class="modal-overlay" @onclick="CancelDelete">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">Delete Project</h2>
+                <button class="modal-close" @onclick="CancelDelete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <strong>Are you sure?</strong>
+                        <p>This will permanently delete <strong>@projectToDelete?.Name</strong>. This action cannot be undone.</p>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button type="button" class="btn-danger" @onclick="DeleteProject" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <div class="spinner-small"></div>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Delete Project</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private class ProjectModel
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Audience { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<ProjectModel> projects = new();
+    private List<ProjectModel> filteredProjects = new();
+    private ProjectModel currentProject = new();
+    private ProjectModel? projectToDelete;
+    
+    private string searchQuery = string.Empty;
+    private string filterStatus = "all";
+    private string errorMessage = string.Empty;
+    
+    private bool isLoading = false;
+    private bool showModal = false;
+    private bool showDeleteModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        isLoading = true;
+        
+        // TODO: Fetch from API
+        await Task.Delay(500); // Simulate API call
+        
+        // Mock data
+        projects = new List<ProjectModel>
+        {
+            new ProjectModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Name = "Heimdall API", 
+                Audience = "heimdall-api", 
+                IsActive = true 
+            },
+            new ProjectModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Name = "Customer Portal", 
+                Audience = "customer-portal", 
+                IsActive = true 
+            },
+            new ProjectModel 
+            { 
+                Id = Guid.NewGuid(), 
+                Name = "Admin Dashboard", 
+                Audience = "admin-dashboard", 
+                IsActive = false 
+            }
+        };
+        
+        filteredProjects = projects;
+        isLoading = false;
+    }
+
+    private void FilterProjects()
+    {
+        filteredProjects = projects.Where(p =>
+        {
+            var matchesSearch = string.IsNullOrWhiteSpace(searchQuery) ||
+                              p.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                              p.Audience.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+            
+            var matchesStatus = filterStatus == "all" ||
+                              (filterStatus == "active" && p.IsActive) ||
+                              (filterStatus == "inactive" && !p.IsActive);
+            
+            return matchesSearch && matchesStatus;
+        }).ToList();
+    }
+
+    private async Task RefreshProjects()
+    {
+        await LoadProjects();
+        FilterProjects();
+    }
+
+    private void OpenCreateModal()
+    {
+        currentProject = new ProjectModel { IsActive = true };
+        isEditMode = false;
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void OpenEditModal(ProjectModel project)
+    {
+        currentProject = new ProjectModel
+        {
+            Id = project.Id,
+            Name = project.Name,
+            Audience = project.Audience,
+            IsActive = project.IsActive
+        };
+        isEditMode = true;
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentProject = new ProjectModel();
+        errorMessage = string.Empty;
+    }
+
+    private async Task SaveProject()
+    {
+        errorMessage = string.Empty;
+        isSaving = true;
+        
+        try
+        {
+            // Validate
+            if (string.IsNullOrWhiteSpace(currentProject.Name))
+            {
+                errorMessage = "Project name is required";
+                return;
+            }
+            
+            if (string.IsNullOrWhiteSpace(currentProject.Audience))
+            {
+                errorMessage = "Audience is required";
+                return;
+            }
+            
+            // TODO: Save to API
+            await Task.Delay(1000); // Simulate API call
+            
+            if (isEditMode)
+            {
+                var index = projects.FindIndex(p => p.Id == currentProject.Id);
+                if (index >= 0)
+                {
+                    projects[index] = new ProjectModel
+                    {
+                        Id = currentProject.Id,
+                        Name = currentProject.Name,
+                        Audience = currentProject.Audience,
+                        IsActive = currentProject.IsActive
+                    };
+                }
+            }
+            else
+            {
+                currentProject.Id = Guid.NewGuid();
+                projects.Add(new ProjectModel
+                {
+                    Id = currentProject.Id,
+                    Name = currentProject.Name,
+                    Audience = currentProject.Audience,
+                    IsActive = currentProject.IsActive
+                });
+            }
+            
+            FilterProjects();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ConfirmDelete(ProjectModel project)
+    {
+        projectToDelete = project;
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+        projectToDelete = null;
+    }
+
+    private async Task DeleteProject()
+    {
+        if (projectToDelete == null) return;
+        
+        isDeleting = true;
+        
+        try
+        {
+            // TODO: Delete via API
+            await Task.Delay(1000); // Simulate API call
+            
+            projects.RemoveAll(p => p.Id == projectToDelete.Id);
+            FilterProjects();
+            
+            CancelDelete();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+}
