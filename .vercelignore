@@ -1,0 +1,31 @@
+# Build outputs
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
+
+# API project (não fazer deploy do backend na Vercel)
+src/Heimdall.Api/
+
+# .NET
+*.user
+*.suo
+*.sln.docstates
+.vs/
+
+# Dependencies
+node_modules/
+packages/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
