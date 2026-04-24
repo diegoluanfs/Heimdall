@@ -28,6 +28,10 @@ artifacts/
 # Blazor/WebAssembly
 wwwroot/
 **/wwwroot/
+
+# Vercel deploy artifacts
+vercel-deploy/
+.vercel/
 **/dist/
 **/build/
 **/publish/
