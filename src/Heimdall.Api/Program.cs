@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
+using FluentValidation;
+using Heimdall.Api.Filters;
 using Heimdall.Application.DTOs;
 using Heimdall.Application.Interfaces;
 using Heimdall.Application.Services;
@@ -20,14 +22,31 @@ builder.Services.AddHsts(o =>
     o.MaxAge = TimeSpan.FromDays(365);
 });
 
-//Temos que ajustar em produção para permitir apenas os domínios autorizados, mas para desenvolvimento local é mais fácil permitir tudo
 builder.Services.AddCors(o =>
 {
     o.AddDefaultPolicy(p =>
     {
-        p.AllowAnyOrigin()
-         .AllowAnyMethod()
-         .AllowAnyHeader();
+        if (builder.Environment.IsDevelopment())
+        {
+            p.AllowAnyOrigin()
+             .AllowAnyMethod()
+             .AllowAnyHeader();
+        }
+        else
+        {
+            var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+            if (allowedOrigins.Length > 0)
+            {
+                p.WithOrigins(allowedOrigins)
+                 .AllowAnyMethod()
+                 .AllowAnyHeader()
+                 .AllowCredentials();
+            }
+            else
+            {
+                throw new InvalidOperationException("Cors:AllowedOrigins must be configured in production.");
+            }
+        }
     });
 });
 
@@ -41,6 +60,15 @@ builder.Services.AddRateLimiter(o =>
         opts.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         opts.QueueLimit = 0;
     });
+
+    o.AddFixedWindowLimiter("refresh", opts =>
+    {
+        opts.PermitLimit = 20;
+        opts.Window = TimeSpan.FromMinutes(1);
+        opts.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opts.QueueLimit = 0;
+    });
+
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -183,6 +211,7 @@ app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpCo
         ? Results.Unauthorized()
         : Results.Ok(result);
 })
+.AddEndpointFilter<ValidationFilter<LoginRequest>>()
 .RequireRateLimiting("login")
 .WithName("Login");
 
@@ -196,6 +225,7 @@ app.MapPost("/api/refresh", async (RefreshRequest request, IAuthService auth, Ht
         ? Results.Unauthorized()
         : Results.Ok(result);
 })
+.RequireRateLimiting("refresh")
 .WithName("Refresh");
 
 app.MapPost("/api/revoke", async (RevokeRequest request, IAuthService auth, CancellationToken ct) =>
@@ -203,6 +233,7 @@ app.MapPost("/api/revoke", async (RevokeRequest request, IAuthService auth, Canc
     var revoked = await auth.RevokeAsync(request, ct);
     return revoked ? Results.Ok() : Results.NotFound();
 })
+.AddEndpointFilter<ValidationFilter<RevokeRequest>>()
 .RequireAuthorization()
 .WithName("Revoke");
 
