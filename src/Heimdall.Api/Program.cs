@@ -97,6 +97,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// ──────────────────────────────── Validation ────────────────────────────────
+builder.Services.AddValidatorsFromAssemblyContaining<LoginRequest>();
+
 // ──────────────────────────────── Infrastructure ────────────────────────────────
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -146,55 +149,95 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ──────────────────────────────── Auto-migrate on startup ────────────────────────────────
+// ──────────────────────────────── Auto-migrate and seed (Development only) ────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimdallDbContext>();
-    db.Database.Migrate();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // Auto-migrate apenas em desenvolvimento
+    if (app.Environment.IsDevelopment())
+    {
+        db.Database.Migrate();
+        logger.LogInformation("Database migrated successfully (Development)");
+    }
+    else
+    {
+        // Em produção, verificar se há migrações pendentes e alertar
+        var pendingMigrations = db.Database.GetPendingMigrations().ToList();
+        if (pendingMigrations.Any())
+        {
+            logger.LogWarning("Pending migrations detected: {Migrations}. Please run migrations manually.", 
+                string.Join(", ", pendingMigrations));
+            throw new InvalidOperationException("Pending migrations detected. Run migrations manually in production.");
+        }
+        logger.LogInformation("Database is up to date (Production)");
+    }
 
     // Criar usuário admin padrão se não existir
     var userService = scope.ServiceProvider.GetRequiredService<UserService>();
     var projectService = scope.ServiceProvider.GetRequiredService<ProjectService>();
+    var userRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IUserRepository>();
 
-    var adminEmail = "admin@heimdall.com";
-    var adminPassword = "Admin@123"; // Trocar em produção via variável de ambiente
+    var adminEmail = builder.Configuration["Seed:AdminEmail"] ?? "admin@heimdall.com";
+    var adminPassword = builder.Configuration["Seed:AdminPassword"] ?? "Admin@123";
 
-    // Criar usuário admin
-    var adminUserId = await userService.CreateUserAsync(
-        new CreateUserRequest(adminEmail, adminPassword), 
-        CancellationToken.None);
-
-    if (adminUserId.HasValue)
+    if (string.IsNullOrEmpty(adminPassword) || adminPassword == "Admin@123")
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Usuário admin padrão criado: {Email}", adminEmail);
+        logger.LogWarning("Using default admin password. Please set Seed:AdminPassword in production!");
+    }
 
-        // Criar projeto padrão "Heimdall" se necessário
-        var projectId = await projectService.CreateProjectAsync(
-            new CreateProjectRequest("Heimdall", "heimdall-api"),
+    // Verificar se admin já existe
+    var existingAdmin = await userRepo.GetByEmailAsync(adminEmail, CancellationToken.None);
+
+    if (existingAdmin is null)
+    {
+        // Criar usuário admin
+        var adminUserId = await userService.CreateUserAsync(
+            new CreateUserRequest(adminEmail, adminPassword), 
             CancellationToken.None);
 
-        if (projectId.HasValue)
+        if (adminUserId.HasValue)
         {
-            // Associar admin ao projeto
-            var userRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IUserRepository>();
-            var projectRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IProjectRepository>();
+            logger.LogInformation("Admin user created: {Email}", adminEmail);
 
-            var user = await userRepo.GetByIdAsync(adminUserId.Value, CancellationToken.None);
-            var project = await projectRepo.GetByIdAsync(projectId.Value, CancellationToken.None);
+            // Criar projeto padrão "Heimdall" se necessário
+            var projectId = await projectService.CreateProjectAsync(
+                new CreateProjectRequest("Heimdall", "heimdall-api"),
+                CancellationToken.None);
 
-            if (user is not null && project is not null)
+            if (projectId.HasValue)
             {
-                user.UserProjects.Add(new Heimdall.Domain.Entities.UserProject
+                // Associar admin ao projeto
+                var projectRepo = scope.ServiceProvider.GetRequiredService<Heimdall.Domain.Interfaces.IProjectRepository>();
+                var user = await userRepo.GetByIdAsync(adminUserId.Value, CancellationToken.None);
+                var project = await projectRepo.GetByIdAsync(projectId.Value, CancellationToken.None);
+
+                if (user is not null && project is not null)
                 {
-                    UserId = user.Id,
-                    ProjectId = project.Id,
-                    Role = "admin"
-                });
-                await userRepo.SaveChangesAsync(CancellationToken.None);
-                logger.LogInformation("Usuário admin associado ao projeto Heimdall com role 'admin'");
+                    user.UserProjects.Add(new Heimdall.Domain.Entities.UserProject
+                    {
+                        UserId = user.Id,
+                        ProjectId = project.Id,
+                        Role = "admin"
+                    });
+                    await userRepo.SaveChangesAsync(CancellationToken.None);
+                    logger.LogInformation("Admin user associated with Heimdall project with role 'admin'");
+                }
+            }
+            else
+            {
+                logger.LogInformation("Heimdall project already exists");
             }
         }
+        else
+        {
+            logger.LogWarning("Failed to create admin user - user may already exist");
+        }
+    }
+    else
+    {
+        logger.LogInformation("Admin user already exists: {Email}", adminEmail);
     }
 }
 
@@ -205,7 +248,11 @@ using (var scope = app.Services.CreateScope())
 app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
 {
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
+    if (userAgent.Length > 512) userAgent = userAgent[..512];
+
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    if (ip.Length > 45) ip = ip[..45];
+
     var result = await auth.LoginAsync(request, userAgent, ip, ct);
     return result is null
         ? Results.Unauthorized()
@@ -218,13 +265,17 @@ app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpCo
 app.MapPost("/api/refresh", async (RefreshRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
 {
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
+    if (userAgent.Length > 512) userAgent = userAgent[..512];
+
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    if (ip.Length > 45) ip = ip[..45];
 
     var result = await auth.RefreshAsync(request, userAgent, ip, ct);
     return result is null
         ? Results.Unauthorized()
         : Results.Ok(result);
 })
+.AddEndpointFilter<ValidationFilter<RefreshRequest>>()
 .RequireRateLimiting("refresh")
 .WithName("Refresh");
 
@@ -244,6 +295,7 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectService
         ? Results.Conflict("A project with this audience already exists.")
         : Results.Created($"/api/projects/{id}", new { id });
 })
+.AddEndpointFilter<ValidationFilter<CreateProjectRequest>>()
 .RequireAuthorization(p => p.RequireRole("admin"))
 .WithName("CreateProject");
 
@@ -254,6 +306,7 @@ app.MapPost("/api/users", async (CreateUserRequest request, UserService users, C
         ? Results.Conflict("A user with this email already exists.")
         : Results.Created($"/api/users/{id}", new { id });
 })
+.AddEndpointFilter<ValidationFilter<CreateUserRequest>>()
 .RequireAuthorization(p => p.RequireRole("admin"))
 .WithName("CreateUser");
 
