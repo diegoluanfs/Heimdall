@@ -1,4 +1,4 @@
-name: Deploy to Vercel and Azure
+name: CI/CD - Deploy to Vercel
 
 on:
   push:
@@ -8,73 +8,110 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
 
 jobs:
-  # Build e Deploy do Frontend (Vercel)
-  deploy-frontend:
-    name: Deploy Frontend to Vercel
+  # Build e testes
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      
+
+      - name: Cache .NET dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  # Deploy do Frontend para Vercel (apenas em push na main)
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
       - name: Build Blazor WebAssembly
         run: |
-          dotnet publish src/Heimdall.Web -c Release -o vercel-output/wwwroot
-      
-      - name: Deploy to Vercel
+          cd src/Heimdall.Web
+          dotnet publish -c Release -o ../../vercel-output
+
+      - name: Copy vercel.json to output
+        run: |
+          cp vercel.json vercel-output/wwwroot/
+
+      - name: Deploy to Vercel (Production)
+        id: deploy
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: vercel-output/wwwroot/wwwroot
+          working-directory: vercel-output/wwwroot
           vercel-args: '--prod'
+          github-comment: true
 
-  # Build e Deploy do Backend (Azure)
-  deploy-backend:
-    name: Deploy Backend to Azure
+  # Preview deploy para Pull Requests
+  deploy-preview:
+    name: Deploy Preview to Vercel
+    needs: build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      
-      - name: Build API
+
+      - name: Build Blazor WebAssembly
         run: |
-          dotnet publish src/Heimdall.Api -c Release -o api-output
-      
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: 'heimdall-api'
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: api-output
+          cd src/Heimdall.Web
+          dotnet publish -c Release -o ../../vercel-output
 
-  # Testes (opcional)
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Copy vercel.json to output
+        run: |
+          cp vercel.json vercel-output/wwwroot/
+
+      - name: Deploy to Vercel (Preview)
+        id: deploy
+        uses: amondnet/vercel-action@v25
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      
-      - name: Restore dependencies
-        run: dotnet restore
-      
-      - name: Build
-        run: dotnet build --no-restore
-      
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: vercel-output/wwwroot
+          github-comment: true

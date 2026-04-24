@@ -3,6 +3,7 @@
 Sistema de autenticação e autorização centralizada com JWT RS256, refresh tokens e multi-tenancy.
 
 [![Deploy](https://img.shields.io/badge/deploy-vercel-black)](https://vercel.com)
+[![CI/CD](https://github.com/diegoluanfs/Heimdall/actions/workflows/deploy.yml/badge.svg)](https://github.com/diegoluanfs/Heimdall/actions/workflows/deploy.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
 [![Blazor](https://img.shields.io/badge/Blazor-WebAssembly-512BD4)](https://blazor.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)

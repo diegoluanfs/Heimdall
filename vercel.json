@@ -1,21 +1,60 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "src/Heimdall.Web/wwwroot/**",
-      "use": "@vercel/static"
-    }
-  ],
+  "buildCommand": "cd src/Heimdall.Web && dotnet publish -c Release -o ../../vercel-output",
+  "outputDirectory": "vercel-output/wwwroot",
   "routes": [
     {
-      "src": "/(.*\\.(css|js|json|ico|png|jpg|svg|woff|woff2|ttf|eot))",
-      "dest": "/$1"
+      "src": "/_framework/(.*)",
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(.*\\.(?:css|js|json|ico|png|jpg|svg|woff|woff2|ttf|eot|wasm|dat|blat)$)",
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
   ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    },
+    {
+      "source": "/_framework/(.*)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      ]
+    }
+  ],
+  "github": {
+    "enabled": true,
+    "autoAlias": true,
+    "silent": false
+  }
 }
