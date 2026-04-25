@@ -78,6 +78,7 @@ jobs:
           working-directory: vercel-output/wwwroot
           vercel-args: '--prod'
           github-comment: true
+          vercel-version: latest
 
   # Preview deploy para Pull Requests
   deploy-preview:
@@ -115,3 +116,4 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: vercel-output/wwwroot
           github-comment: true
+          vercel-version: latest
