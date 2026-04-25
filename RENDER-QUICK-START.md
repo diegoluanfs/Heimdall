@@ -28,6 +28,9 @@ No serviço criado, vá em **Environment** e adicione:
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:5000
 
+# Database (SQLite com auto-migration)
+Database__AutoMigrate=true
+
 # JWT (ajuste os paths conforme suas Secret Files)
 Jwt__Issuer=https://heimdall-api.onrender.com
 Jwt__Audience=heimdall-web

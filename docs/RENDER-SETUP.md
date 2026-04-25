@@ -44,6 +44,9 @@ No dashboard do serviço criado, vá em **"Environment"** e adicione:
 ```bash
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:5000
+
+# Auto-aplicar migrações do banco de dados
+Database__AutoMigrate=true
 ```
 
 #### Conexão com Banco (escolha uma):

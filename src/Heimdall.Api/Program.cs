@@ -156,20 +156,24 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
     // Auto-migrate apenas em desenvolvimento
-    if (app.Environment.IsDevelopment())
+    // Aplicar migrações do banco de dados
+    var autoMigrate = builder.Configuration.GetValue<bool>("Database:AutoMigrate", false);
+
+    if (app.Environment.IsDevelopment() || autoMigrate)
     {
         db.Database.Migrate();
-        logger.LogInformation("Database migrated successfully (Development)");
+        logger.LogInformation("Database migrated successfully ({Environment})", 
+            app.Environment.EnvironmentName);
     }
     else
     {
-        // Em produção, verificar se há migrações pendentes e alertar
+        // Em produção sem auto-migrate, verificar se há migrações pendentes e alertar
         var pendingMigrations = db.Database.GetPendingMigrations().ToList();
         if (pendingMigrations.Any())
         {
             logger.LogWarning("Pending migrations detected: {Migrations}. Please run migrations manually.", 
                 string.Join(", ", pendingMigrations));
-            throw new InvalidOperationException("Pending migrations detected. Run migrations manually in production.");
+            throw new InvalidOperationException("Pending migrations detected. Run migrations manually in production or set Database:AutoMigrate=true.");
         }
         logger.LogInformation("Database is up to date (Production)");
     }
