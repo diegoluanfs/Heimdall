@@ -14,11 +14,11 @@ Guia rápido para configurar deploy automático do backend Heimdall.Api na Rende
    - **Branch**: `main`
    - **Root Directory**: `src/Heimdall.Api`
    - **Environment**: `Docker`
-   - **Dockerfile Path**: `./Dockerfile` (já criado em `src/Heimdall.Api/Dockerfile`)
-   - **Docker Build Context Directory**: `../../` (para acessar todos os projetos da solution)
+   - **Dockerfile Path**: `./Dockerfile`
+   - **Docker Build Context Directory**: `src/Heimdall.Api` (padrão, deixe como está)
    - **Plan**: Free (para testes) ou Starter ($7/mês)
 
-   ⚠️ **Importante**: A Render detectará automaticamente o Dockerfile!
+   ✅ A Render detectará automaticamente o Dockerfile e configurará o build context!
 
 ### 2️⃣ Configurar Variáveis de Ambiente (3 min)
 

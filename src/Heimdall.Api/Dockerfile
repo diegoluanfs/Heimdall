@@ -2,17 +2,20 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy solution and project files
-COPY ["src/Heimdall.Api/Heimdall.Api.csproj", "Heimdall.Api/"]
-COPY ["src/Heimdall.Application/Heimdall.Application.csproj", "Heimdall.Application/"]
-COPY ["src/Heimdall.Domain/Heimdall.Domain.csproj", "Heimdall.Domain/"]
-COPY ["src/Heimdall.Infrastructure/Heimdall.Infrastructure.csproj", "Heimdall.Infrastructure/"]
+# Copy solution and project files (relative to build context: src/Heimdall.Api/)
+COPY ["Heimdall.Api.csproj", "Heimdall.Api/"]
+COPY ["../Heimdall.Application/Heimdall.Application.csproj", "Heimdall.Application/"]
+COPY ["../Heimdall.Domain/Heimdall.Domain.csproj", "Heimdall.Domain/"]
+COPY ["../Heimdall.Infrastructure/Heimdall.Infrastructure.csproj", "Heimdall.Infrastructure/"]
 
 # Restore dependencies
 RUN dotnet restore "Heimdall.Api/Heimdall.Api.csproj"
 
-# Copy all source code
-COPY src/ .
+# Copy all source code from parent directory
+COPY . Heimdall.Api/
+COPY ../Heimdall.Application/ Heimdall.Application/
+COPY ../Heimdall.Domain/ Heimdall.Domain/
+COPY ../Heimdall.Infrastructure/ Heimdall.Infrastructure/
 
 # Build and publish
 WORKDIR "/src/Heimdall.Api"
