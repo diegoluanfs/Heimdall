@@ -1,7 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "cd src/Heimdall.Web && dotnet publish -c Release -o ../../vercel-output",
-  "outputDirectory": "vercel-output/wwwroot",
   "routes": [
     {
       "src": "/_framework/(.*)",
@@ -53,8 +51,8 @@
     }
   ],
   "github": {
-    "enabled": true,
-    "autoAlias": true,
-    "silent": false
+    "enabled": false,
+    "autoAlias": false,
+    "silent": true
   }
 }
