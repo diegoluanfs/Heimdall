@@ -314,6 +314,17 @@ app.MapPost("/api/users", async (CreateUserRequest request, UserService users, C
 // Mapeia todas as rotas não encontradas para o index.html do Blazor
 app.MapFallbackToFile("index.html");
 
+// Health check endpoint for monitoring
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow,
+    version = "1.0.0",
+    environment = builder.Environment.EnvironmentName
+}))
+.WithName("HealthCheck")
+.AllowAnonymous();
+
 app.Run();
 
 public partial class Program { }

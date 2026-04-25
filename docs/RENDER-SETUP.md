@@ -22,10 +22,15 @@ Este guia explica como configurar o deploy automático do backend Heimdall.Api n
    Region: Oregon (US West) ou Frankfurt (EU Central)
    Branch: main
    Root Directory: src/Heimdall.Api
-   Runtime: .NET
-   Build Command: dotnet publish -c Release -o out
-   Start Command: dotnet out/Heimdall.Api.dll
+   Environment: Docker
+   Dockerfile Path: ./Dockerfile
+   Docker Build Context Directory: ../../
    ```
+
+   ⚠️ **Importante**: 
+   - A Render detectará automaticamente o Dockerfile em `src/Heimdall.Api/Dockerfile`
+   - O Build Context precisa ser `../../` para acessar todos os projetos da solution
+   - Não precisa definir Build Command ou Start Command (está no Dockerfile)
 
 5. Escolha o plano:
    - **Free** (para testes) - limitations: 750h/mês, suspend após 15min de inatividade
