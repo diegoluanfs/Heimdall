@@ -31,18 +31,18 @@ ASPNETCORE_URLS=http://+:5000
 # Database (SQLite com auto-migration)
 Database__AutoMigrate=true
 
-# JWT (ajuste os paths conforme suas Secret Files)
-Jwt__Issuer=https://heimdall-api.onrender.com
-Jwt__Audience=heimdall-web
-Jwt__PrivateKeyPath=/etc/secrets/jwt_private.key
-Jwt__PublicKeyPath=/etc/secrets/jwt_public.key
+# JWT (você precisa gerar as chaves primeiro - veja seção 3)
+Jwt__Issuer=https://heimdall-6afc.onrender.com
+Jwt__ValidAudiences__0=heimdall-api
+Jwt__PrivateKeyPem=[COLE AQUI O CONTEÚDO DA CHAVE PRIVADA - veja abaixo]
+Jwt__PublicKeyPem=[COLE AQUI O CONTEÚDO DA CHAVE PÚBLICA - veja abaixo]
 
 # Admin
 Seed__AdminEmail=admin@heimdall.com
 Seed__AdminPassword=Admin@123!Prod
 
 # CORS (ajuste para sua URL Vercel)
-AllowedOrigins__0=https://heimdall-diego-luans-projects.vercel.app
+Cors__AllowedOrigins__0=https://heimdall-diego-luans-projects.vercel.app
 ```
 
 ### 3️⃣ Gerar e Configurar Chaves JWT (5 min)
@@ -57,12 +57,37 @@ openssl genpkey -algorithm RSA -out jwt_private.key -pkeyopt rsa_keygen_bits:204
 openssl rsa -pubout -in jwt_private.key -out jwt_public.key
 ```
 
-**No Render Dashboard:**
+**Preparar chaves para Environment Variables:**
 
-1. Vá em **Environment** → **Secret Files**
-2. Adicione:
-   - **Filename**: `/etc/secrets/jwt_private.key` → Cole conteúdo de `jwt_private.key`
-   - **Filename**: `/etc/secrets/jwt_public.key` → Cole conteúdo de `jwt_public.key`
+As chaves precisam ser colocadas como **variáveis de ambiente** (NÃO como Secret Files).
+
+**Opção A: Manual**
+1. Abra `jwt_private.key` no editor
+2. Copie TODO o conteúdo (incluindo `-----BEGIN...` e `-----END...`)
+3. Na Render, adicione a variável `Jwt__PrivateKeyPem` e cole o conteúdo
+4. Repita para `jwt_public.key` → variável `Jwt__PublicKeyPem`
+
+⚠️ **IMPORTANTE**: As quebras de linha (`\n`) devem ser preservadas. A Render aceita multi-linha.
+
+**Opção B: PowerShell Script** (Windows)
+```powershell
+# Ler e formatar chaves
+$privateKey = Get-Content jwt_private.key -Raw
+$publicKey = Get-Content jwt_public.key -Raw
+
+Write-Host "=== PRIVATE KEY (cole em Jwt__PrivateKeyPem) ==="
+Write-Host $privateKey
+Write-Host "`n=== PUBLIC KEY (cole em Jwt__PublicKeyPem) ==="
+Write-Host $publicKey
+```
+
+**Opção C: Bash Script** (Linux/Mac)
+```bash
+echo "=== PRIVATE KEY (cole em Jwt__PrivateKeyPem) ==="
+cat jwt_private.key
+echo -e "\n=== PUBLIC KEY (cole em Jwt__PublicKeyPem) ==="
+cat jwt_public.key
+```
 
 ### 4️⃣ Obter Deploy Hook (2 min)
 

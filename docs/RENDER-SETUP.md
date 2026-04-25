@@ -68,10 +68,10 @@ ConnectionStrings__DefaultConnection=Data Source=/var/data/heimdall.db
 
 #### Segurança (JWT):
 ```bash
-Jwt__Issuer=https://heimdall-api.onrender.com
-Jwt__Audience=heimdall-web
-Jwt__PrivateKeyPath=/etc/secrets/jwt_private.key
-Jwt__PublicKeyPath=/etc/secrets/jwt_public.key
+Jwt__Issuer=https://heimdall-6afc.onrender.com
+Jwt__ValidAudiences__0=heimdall-api
+Jwt__PrivateKeyPem=[CONTEÚDO COMPLETO DA CHAVE PRIVADA]
+Jwt__PublicKeyPem=[CONTEÚDO COMPLETO DA CHAVE PÚBLICA]
 ```
 
 #### Admin Inicial:
@@ -82,7 +82,7 @@ Seed__AdminPassword=Admin@123!Prod
 
 #### CORS:
 ```bash
-AllowedOrigins__0=https://heimdall-diego-luans-projects.vercel.app
+Cors__AllowedOrigins__0=https://heimdall-diego-luans-projects.vercel.app
 ```
 
 ### 3. Configurar Chaves JWT na Render
@@ -96,11 +96,32 @@ openssl genpkey -algorithm RSA -out jwt_private.key -pkeyopt rsa_keygen_bits:204
 openssl rsa -pubout -in jwt_private.key -out jwt_public.key
 ```
 
-#### Adicionar como Secret Files na Render:
-1. No dashboard do serviço, vá em **"Environment"** → **"Secret Files"**
-2. Adicione:
-   - **Filename**: `/etc/secrets/jwt_private.key` → Cole o conteúdo de `jwt_private.key`
-   - **Filename**: `/etc/secrets/jwt_public.key` → Cole o conteúdo de `jwt_public.key`
+#### Adicionar como Environment Variables na Render:
+
+⚠️ **IMPORTANTE**: As chaves devem ser adicionadas como **Environment Variables**, NÃO como Secret Files!
+
+1. No dashboard do serviço, vá em **"Environment"** → **"Environment Variables"**
+2. Adicione duas variáveis:
+
+**Variável 1: Chave Privada**
+- **Key**: `Jwt__PrivateKeyPem`
+- **Value**: Cole o conteúdo COMPLETO de `jwt_private.key`, incluindo:
+  ```
+  -----BEGIN PRIVATE KEY-----
+  [conteúdo da chave]
+  -----END PRIVATE KEY-----
+  ```
+
+**Variável 2: Chave Pública**
+- **Key**: `Jwt__PublicKeyPem`
+- **Value**: Cole o conteúdo COMPLETO de `jwt_public.key`, incluindo:
+  ```
+  -----BEGIN PUBLIC KEY-----
+  [conteúdo da chave]
+  -----END PUBLIC KEY-----
+  ```
+
+💡 **Dica**: A Render aceita valores multi-linha. Você pode colar as chaves diretamente no campo de valor.
 
 ### 4. Obter Deploy Hook da Render
 
