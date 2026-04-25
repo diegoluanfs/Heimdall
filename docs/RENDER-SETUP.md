@@ -21,17 +21,16 @@ Este guia explica como configurar o deploy automático do backend Heimdall.Api n
    Name: heimdall-api
    Region: Oregon (US West) ou Frankfurt (EU Central)
    Branch: main
-   Root Directory: src/Heimdall.Api
+   Root Directory: (deixe vazio)
    Environment: Docker
    Dockerfile Path: ./Dockerfile
-   Docker Build Context Directory: src/Heimdall.Api (padrão)
    ```
 
    ✅ **Importante**: 
-   - A Render detectará automaticamente o Dockerfile em `src/Heimdall.Api/Dockerfile`
-   - O Build Context é automaticamente configurado como `src/Heimdall.Api`
-   - O Dockerfile foi otimizado para usar paths relativos (`../Heimdall.Application/`, etc.)
+   - O Dockerfile está na raiz do repositório
+   - Isso permite acessar todos os projetos em `src/`
    - Não precisa definir Build Command ou Start Command (está no Dockerfile)
+   - O build context será a raiz do repositório
 
 5. Escolha o plano:
    - **Free** (para testes) - limitations: 750h/mês, suspend após 15min de inatividade
