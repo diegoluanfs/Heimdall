@@ -1,4 +1,4 @@
-name: CI/CD - Deploy to Vercel
+name: CI/CD - Deploy to Vercel & Render
 
 on:
   push:
@@ -117,3 +117,22 @@ jobs:
           working-directory: vercel-output/wwwroot
           github-comment: true
           vercel-version: latest
+
+  # Deploy do Backend para Render (apenas em push na main)
+  deploy-backend:
+    name: Deploy Backend to Render
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-api
+    steps:
+      - name: Trigger Render Deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for deployment
+        run: |
+          echo "✅ Deploy triggered successfully!"
+          echo "🔗 Monitor deployment at: https://dashboard.render.com"
+          echo "⏳ Deployment typically takes 2-3 minutes"
