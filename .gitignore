@@ -26,8 +26,13 @@ project.fragment.lock.json
 artifacts/
 
 # Blazor/WebAssembly
-wwwroot/
-**/wwwroot/
+# Ignore wwwroot build outputs but keep source files
+**/wwwroot/js/
+**/wwwroot/_framework/
+**/wwwroot/*.json
+!**/wwwroot/appsettings*.json
+!**/wwwroot/css/
+!**/wwwroot/index.html
 
 # Vercel deploy artifacts
 vercel-deploy/
