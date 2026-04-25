@@ -38,6 +38,9 @@ artifacts/
 vercel-deploy/
 .vercel/
 **/dist/
+
+# Vercel project configuration (contains sensitive IDs)
+.vercel/project.json
 **/build/
 **/publish/
 **/node_modules/
