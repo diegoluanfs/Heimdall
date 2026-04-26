@@ -1,0 +1,54 @@
+============================================
+VARIAVEIS DE AMBIENTE PARA RENDER
+============================================
+
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://+:5000
+Database__AutoMigrate=true
+Jwt__Issuer=https://heimdall-6afc.onrender.com
+Jwt__ValidAudiences__0=heimdall-api
+
+Jwt__PrivateKeyPem=-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDBXSJ+iiAbkmw7
+4OoIAh5ILoH9AlB+Bw5nPyoRRVysGRYgjCVSixTrE0RSDHcBWfEUvTvhQRsrtuCf
+W+SyjMjo4j5QLxfA3T52L/SnL4a/SUJUBxluTqcDlKnShoh3NAE+MSymIAz61/XU
+kCCstYqbQpR8qyHBdbGrT8HytFHsvEsBaf9UMv2B7Sibja105obj7hHIUu75W1K3
+omIV1wWoaVGUZT55NyENyVNjA86ODbxBtqBbUFujQqQZT7pkhU76n2h68wx088ns
+dYPYJTcvKzWg/UhzbLIuLWgFSiWRUqucDDr3FJbVgAlstAhqa3HZAcpEuuxe+JzF
+RBYNxHhpAgMBAAECggEAaEcgxhsZS6VAR154946k5ApowZhQ7lZB1z5CIoREgO8a
+drz9l7E3u7ptOs5ME2d80tFmjIi+7Wk3Y9l70SqJYsY4EqgC6FioSbZ8+vhvc5M/
+eO9HMKyr9wtiNg2lZJugG/kK+iAIv/JdOZ/sbxeMQ0S5rS3hC2K8SQW/M3M5RzAo
+E8rolDi6S0PzYOfUjX2fHn3Bv4sjDb2HFrRNPEjRIEN6iD0lFmz7XasYPR6u06f/
+0UYDJouqYlbhrrLO8tlnpMXbcAe4wy0TFG1CfP6guaSqwZNqrBI7VBnh6G8g/EK3
+o0ox9XsCDZcohPJHWVbQoFLZ1+DgdHTymdRy3WpEbQKBgQDoZUSxFwxk+BPgun9D
+8m4qZa32Ynzp9j0nqPv/bQ61Cae/rSMkEm8vkpWoqUlu+aOHjtAirBlUQI4o5CEc
+zLleVI3/DqOtiQgliPXRYOI59Qgw8HfZNBu29YSpimF75JNZ6AQFJE5oC3DtVefw
+oSh/rrul5x4YmiSkTi0Iq4Tz/wKBgQDVAPcge2PmQHyghhB+sai0tzv/kvhIhyMl
+RKVbdmP0vP/xiA36XDhERHmwRbZu8pQ8PLSU35n+nSgR2YdvfegRxz0b72BddYtc
+wYsbH1srWbjUIPF5TgOBC9B5N6Wz4pE1gyQYXCTDDiqPoE43eJ0H+UUEpFhw2Dy1
+Ukd7s0NzlwKBgGLwAh+WnWs7BlNtcpL92hLouPglE+MTNxP0aFxlFJbUZns+/a/0
+vSs2r8pfT+kUFJ+4mDm6pQnudddI0CQPsHdNbiqBFAPkS/iW53hdU9Ky0+rp5Uwu
+WAI7YmA/jqMNPAJRuaxquYqoHEqegSE7qx84x6Co1XJJ5YGh2qBPTUoHAoGAa5vK
+PaG4rXlEvQAd0zPDzFCJwisovdNvwQM2Gsfr5ZeaIhafIS13y51gcNo3OUPZ+bid
+blysesJAnQvtbTkJhfnG+JbtcynQFzM8KJ6lu3ffdWOTOrpb8NTcJHEliIRc4dD3
+6kqa0+QTQm41Nbb8divLX3X7rD7CJMSFkovU9s8CgYEApFnfKAWqmoD7jw8lsz2k
+ruyF9ybF5BOBas75rJf16lzSpXLFoOZiDD/r9kLfxl7w5nah+M0aW2WWR0ik2iFw
+uovUAVQ0zuc4dg6BKoAKiVGqU/XFnN1aRRXQV/K1nogSBA6bmXNPesJS1RCusKBb
+vfgUWeIG1CUjuB4bhJUTl5A=
+-----END PRIVATE KEY-----
+
+Jwt__PublicKeyPem=-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwV0ifoogG5JsO+DqCAIe
+SC6B/QJQfgcOZz8qEUVcrBkWIIwlUosU6xNEUgx3AVnxFL074UEbK7bgn1vksozI
+6OI+UC8XwN0+di/0py+Gv0lCVAcZbk6nA5Sp0oaIdzQBPjEspiAM+tf11JAgrLWK
+m0KUfKshwXWxq0/B8rRR7LxLAWn/VDL9ge0om42tdOaG4+4RyFLu+VtSt6JiFdcF
+qGlRlGU+eTchDclTYwPOjg28QbagW1Bbo0KkGU+6ZIVO+p9oevMMdPPJ7HWD2CU3
+Lys1oP1Ic2yyLi1oBUolkVKrnAw69xSW1YAJbLQIamtx2QHKRLrsXvicxUQWDcR4
+aQIDAQAB
+-----END PUBLIC KEY-----
+
+Seed__AdminEmail=admin@heimdall.com
+Seed__AdminPassword=Admin@123!Prod
+Cors__AllowedOrigins__0=https://heimdall-diego-luans-projects.vercel.app
+
+============================================
