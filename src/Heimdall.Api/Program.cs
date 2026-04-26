@@ -39,8 +39,7 @@ builder.Services.AddCors(o =>
             {
                 p.WithOrigins(allowedOrigins)
                  .AllowAnyMethod()
-                 .AllowAnyHeader()
-                 .AllowCredentials();
+                 .AllowAnyHeader();
             }
             else
             {
@@ -249,8 +248,13 @@ using (var scope = app.Services.CreateScope())
 
 
 // Endpoint de login usando serviço real
-app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, CancellationToken ct) =>
+app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpContext ctx, ILogger<Program> logger, CancellationToken ct) =>
 {
+    logger.LogInformation("Login attempt from {Email}, Origin: {Origin}, IP: {IP}", 
+        request.Email, 
+        ctx.Request.Headers.Origin.ToString(), 
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
     var userAgent = ctx.Request.Headers.UserAgent.ToString();
     if (userAgent.Length > 512) userAgent = userAgent[..512];
 
@@ -258,9 +262,15 @@ app.MapPost("/api/login", async (LoginRequest request, IAuthService auth, HttpCo
     if (ip.Length > 45) ip = ip[..45];
 
     var result = await auth.LoginAsync(request, userAgent, ip, ct);
-    return result is null
-        ? Results.Unauthorized()
-        : Results.Ok(result);
+
+    if (result is null)
+    {
+        logger.LogWarning("Login failed for {Email}", request.Email);
+        return Results.Unauthorized();
+    }
+
+    logger.LogInformation("Login successful for {Email}", request.Email);
+    return Results.Ok(result);
 })
 .AddEndpointFilter<ValidationFilter<LoginRequest>>()
 .RequireRateLimiting("login")
