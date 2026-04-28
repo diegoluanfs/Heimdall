@@ -14,7 +14,7 @@ namespace Heimdall.Api.Diagnostics
                 var logger = context.RequestServices.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
                 var log = logger?.CreateLogger("FileServingLogger");
                 log?.LogInformation($"Tentando servir arquivo: {filePath} | Existe: {File.Exists(filePath)}");
-                await next();
+                await next(); 
             });
         }
     }
