@@ -14,10 +14,31 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "Data Source=heimdall.db";
+        // Determinar provider baseado em configuração
+        var usePostgres = configuration.GetValue<bool>("Database:UsePostgreSQL", false);
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        services.AddDbContext<HeimdallDbContext>(options =>
-            options.UseSqlite(connectionString));
+        if (usePostgres)
+        {
+            // PostgreSQL para produção (Render)
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "PostgreSQL configurado mas ConnectionStrings:DefaultConnection não encontrada. " +
+                    "Configure DATABASE_URL no Render ou ConnectionStrings__DefaultConnection.");
+            }
+
+            services.AddDbContext<HeimdallDbContext>(options =>
+                options.UseNpgsql(connectionString));
+        }
+        else
+        {
+            // SQLite para desenvolvimento local
+            connectionString ??= "Data Source=heimdall.db";
+
+            services.AddDbContext<HeimdallDbContext>(options =>
+                options.UseSqlite(connectionString));
+        }
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();

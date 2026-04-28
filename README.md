@@ -235,7 +235,7 @@ az webapp deployment source config-zip \
 
 - **Framework:** ASP.NET Core 8.0 (Minimal APIs)
 - **ORM:** Entity Framework Core 8
-- **Database:** SQLite (dev), SQL Server / PostgreSQL (prod)
+- **Database:** SQLite (dev), PostgreSQL (prod - **recomendado**)
 - **Validation:** FluentValidation 12.1.1
 - **Logging:** Microsoft.Extensions.Logging
 
@@ -249,6 +249,13 @@ az webapp deployment source config-zip \
 
 - **JWT:** System.IdentityModel.Tokens.Jwt
 - **Crypto:** System.Security.Cryptography (RSA, PBKDF2)
+
+### Deployment
+
+- **Frontend:** Vercel (Static Hosting)
+- **Backend:** Render (Docker)
+- **Database:** Render PostgreSQL Free (512MB)
+- **CI/CD:** GitHub Actions
 
 ---
 

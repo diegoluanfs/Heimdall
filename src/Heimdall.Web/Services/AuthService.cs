@@ -34,20 +34,36 @@ public class AuthService
             Password = password,
             Audience = audience
         };
-        
+
         try
         {
+            Console.WriteLine($"[AuthService] Sending login request to: {_httpClient.BaseAddress}api/login");
+            Console.WriteLine($"[AuthService] Email: {email}, Audience: {audience}");
+
             var response = await _httpClient.PostAsJsonAsync("/api/login", request);
-            
+
+            Console.WriteLine($"[AuthService] Response status: {response.StatusCode}");
+
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<LoginResponse>();
+                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                Console.WriteLine("[AuthService] Login successful!");
+                return result;
             }
-            
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"[AuthService] Login failed: {errorContent}");
+
             return null;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[AuthService] Exception during login: {ex.GetType().Name}");
+            Console.WriteLine($"[AuthService] Exception message: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[AuthService] Inner exception: {ex.InnerException.Message}");
+            }
             return null;
         }
     }
